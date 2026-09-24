@@ -179,6 +179,8 @@ func buildArchive(folder string, compress bool) ([]byte, error) {
 	}
 	slices.Sort(files)
 
+	fileMode := archiveFileModes(folder)
+
 	var buf bytes.Buffer
 	var gz *gzip.Writer
 	var tw *tar.Writer
@@ -203,9 +205,10 @@ func buildArchive(folder string, compress bool) ([]byte, error) {
 			return nil, err
 		}
 
+		name := filepath.ToSlash(rel)
 		if err := tw.WriteHeader(&tar.Header{
-			Name:    filepath.ToSlash(rel),
-			Mode:    int64(info.Mode().Perm()),
+			Name:    name,
+			Mode:    fileMode(name, info),
 			Size:    info.Size(),
 			ModTime: archiveModTime,
 		}); err != nil {
