@@ -322,3 +322,12 @@ playground:
 	assert.NotContains(t, entries, "secret.txt")
 	assert.NotContains(t, entries, ".labctlignore")
 }
+
+func TestIsCRLFScript(t *testing.T) {
+	assert.True(t, isCRLFScript([]byte("#!/bin/sh\r\necho hi\r\n")))
+	assert.True(t, isCRLFScript([]byte("#!/bin/sh\r")))
+	assert.False(t, isCRLFScript([]byte("#!/bin/sh\necho hi\n")))
+	assert.False(t, isCRLFScript([]byte("#!/bin/sh")))
+	assert.False(t, isCRLFScript([]byte("plain text\r\n")))
+	assert.False(t, isCRLFScript(nil))
+}

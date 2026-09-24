@@ -4,10 +4,22 @@ import (
 	"bytes"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 )
+
+// warned keeps watch mode from repeating the same warning on every archive
+// rebuild.
+var warned sync.Map
+
+func warnOnce(key, msg string, args ...any) {
+	if _, ok := warned.LoadOrStore(key, true); !ok {
+		slog.Warn(msg, args...)
+	}
+}
 
 // archiveEntry is a regular file to be archived.
 type archiveEntry struct {
