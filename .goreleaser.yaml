@@ -43,8 +43,8 @@ release:
   header: |
     > [!NOTE]
     > **Unofficial Windows build** of [iximiuz/labctl](https://github.com/iximiuz/labctl), maintained by @rodolphobrock.
-    > `{{ .Tag }}` is upstream `vX.Y.Z` (the part before `-win`) plus Windows fixes that were proposed upstream.
-    > For official releases (Linux, macOS), see [iximiuz/labctl releases](https://github.com/iximiuz/labctl/releases).
+    > Based on the upstream version in the tag (before `-win`) plus Windows fixes proposed upstream.
+    > For official releases, see [iximiuz/labctl releases](https://github.com/iximiuz/labctl/releases).
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
