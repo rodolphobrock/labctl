@@ -179,18 +179,7 @@ func buildArchive(folder string, compress bool) ([]byte, error) {
 	}
 	slices.Sort(files)
 
-	fileMode := archiveFileModes(folder)
-
-	var buf bytes.Buffer
-	var gz *gzip.Writer
-	var tw *tar.Writer
-	if compress {
-		gz = gzip.NewWriter(&buf)
-		tw = tar.NewWriter(gz)
-	} else {
-		tw = tar.NewWriter(&buf)
-	}
-
+	var entries []archiveEntry
 	for _, file := range files {
 		info, err := os.Stat(file)
 		if err != nil {
@@ -205,17 +194,32 @@ func buildArchive(folder string, compress bool) ([]byte, error) {
 			return nil, err
 		}
 
-		name := filepath.ToSlash(rel)
+		entries = append(entries, archiveEntry{path: file, name: filepath.ToSlash(rel), info: info})
+	}
+
+	modes := archiveFileModes(folder, entries)
+
+	var buf bytes.Buffer
+	var gz *gzip.Writer
+	var tw *tar.Writer
+	if compress {
+		gz = gzip.NewWriter(&buf)
+		tw = tar.NewWriter(gz)
+	} else {
+		tw = tar.NewWriter(&buf)
+	}
+
+	for _, entry := range entries {
 		if err := tw.WriteHeader(&tar.Header{
-			Name:    name,
-			Mode:    fileMode(name, info),
-			Size:    info.Size(),
+			Name:    entry.name,
+			Mode:    modes[entry.name],
+			Size:    entry.info.Size(),
 			ModTime: archiveModTime,
 		}); err != nil {
 			return nil, err
 		}
 
-		f, err := os.Open(file)
+		f, err := os.Open(entry.path)
 		if err != nil {
 			return nil, err
 		}
