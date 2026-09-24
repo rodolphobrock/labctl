@@ -10,6 +10,27 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 )
 
+// An unusable $SSH_AUTH_SOCK (e.g. an MSYS agent socket from Git Bash) falls
+// back to the Windows OpenSSH agent.
+func TestDialAgent_FallsBackFromBrokenSocket(t *testing.T) {
+	t.Setenv("SSH_AUTH_SOCK", "")
+	if conn, err := dialAgent(); err != nil || conn == nil {
+		t.Skip("the Windows OpenSSH agent is not running")
+	} else {
+		conn.Close()
+	}
+
+	t.Setenv("SSH_AUTH_SOCK", "/tmp/ssh-XXXXXX/agent.1234")
+
+	conn, err := dialAgent()
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+	defer conn.Close()
+
+	_, err = agent.NewClient(conn).List()
+	require.NoError(t, err)
+}
+
 // Regression test: a synchronously opened agent pipe hangs on the second
 // request. Needs the Windows OpenSSH agent (ssh-agent service) running.
 func TestDialAgent_RepeatedRequests(t *testing.T) {
