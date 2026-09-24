@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -58,6 +59,22 @@ func splitRemotePath(arg string) (playID string, path string, ok bool) {
 	return playID, path, true
 }
 
+// scpLocalPath converts Windows extended-length paths (\\?\C:\... and
+// \\?\UNC\server\share\...) to their regular form, which is the only one scp
+// understands - it would take "\\?\C" for a remote host.
+func scpLocalPath(path string) string {
+	if runtime.GOOS != "windows" {
+		return path
+	}
+	if rest, ok := strings.CutPrefix(path, `\\?\UNC\`); ok {
+		return `\\` + rest
+	}
+	if rest, ok := strings.CutPrefix(path, `\\?\`); ok {
+		return rest
+	}
+	return path
+}
+
 func NewCommand(cli labcli.CLI) *cobra.Command {
 	var opts options
 
@@ -80,12 +97,12 @@ func NewCommand(cli labcli.CLI) *cobra.Command {
 				opts.direction = DirectionRemoteToLocal
 				opts.playID = srcPlayID
 				opts.remotePath = srcPath
-				opts.localPath = args[1]
+				opts.localPath = scpLocalPath(args[1])
 			} else {
 				opts.direction = DirectionLocalToRemote
 				opts.playID = dstPlayID
 				opts.remotePath = dstPath
-				opts.localPath = args[0]
+				opts.localPath = scpLocalPath(args[0])
 			}
 
 			return labcli.WrapStatusError(runCopy(cmd.Context(), cli, &opts))
