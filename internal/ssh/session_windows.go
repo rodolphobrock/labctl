@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"net"
 	"os"
 	"strings"
@@ -26,21 +27,31 @@ const defaultAgentPipe = `\\.\pipe\openssh-ssh-agent`
 // nil (and no error) if the default agent isn't running.
 func dialAgent() (io.ReadWriteCloser, error) {
 	sock := os.Getenv("SSH_AUTH_SOCK")
-	if sock != "" && !isNamedPipe(sock) {
-		return net.Dial("unix", sock)
+	if isNamedPipe(sock) {
+		f, err := openPipe(sock)
+		if err != nil {
+			return nil, fmt.Errorf("open named pipe %s: %w", sock, err)
+		}
+		return f, nil
 	}
 
-	pipe := sock
-	if pipe == "" {
-		pipe = defaultAgentPipe
+	if sock != "" {
+		conn, err := net.Dial("unix", sock)
+		if err == nil {
+			return conn, nil
+		}
+		// E.g., an MSYS/Cygwin agent socket from Git Bash, which isn't a real
+		// AF_UNIX socket - fall back to the Windows OpenSSH agent.
+		slog.Debug("Failed to connect to SSH agent from SSH_AUTH_SOCK; trying the Windows OpenSSH agent",
+			"SSH_AUTH_SOCK", sock, "error", err)
 	}
 
-	f, err := openPipe(pipe)
-	if sock == "" && errors.Is(err, fs.ErrNotExist) {
+	f, err := openPipe(defaultAgentPipe)
+	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("open named pipe %s: %w", pipe, err)
+		return nil, fmt.Errorf("open named pipe %s: %w", defaultAgentPipe, err)
 	}
 	return f, nil
 }
