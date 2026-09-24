@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -44,6 +45,19 @@ type options struct {
 	direction Direction
 }
 
+// splitRemotePath parses a <playground-id>:<path> argument. Local paths with
+// a volume name (e.g. C:\some\file on Windows) are never treated as remote.
+func splitRemotePath(arg string) (playID string, path string, ok bool) {
+	if filepath.VolumeName(arg) != "" {
+		return "", "", false
+	}
+	playID, path, ok = strings.Cut(arg, ":")
+	if !ok {
+		return "", "", false
+	}
+	return playID, path, true
+}
+
 func NewCommand(cli labcli.CLI) *cobra.Command {
 	var opts options
 
@@ -51,25 +65,26 @@ func NewCommand(cli labcli.CLI) *cobra.Command {
 		Use:     "cp [flags] <playground-id>:<source-path> <destination-path>\n  labctl cp [flags] <source-path> <playground-id>:<destination-path>",
 		Short:   `Copy files to and from the target playground`,
 		Example: example,
-		Args:    cobra.MinimumNArgs(2),
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if strings.Count(args[0]+args[1], ":") != 1 {
-				return fmt.Errorf("exactly one argument must be a colon-separated <playground-id>:<path> pair")
+			srcPlayID, srcPath, srcIsRemote := splitRemotePath(args[0])
+			dstPlayID, dstPath, dstIsRemote := splitRemotePath(args[1])
+			if srcIsRemote == dstIsRemote {
+				return labcli.NewStatusError(1, "exactly one argument must be a colon-separated <playground-id>:<path> pair")
+			}
+			if (srcIsRemote && srcPlayID == "") || (dstIsRemote && dstPlayID == "") {
+				return labcli.NewStatusError(1, "playground ID must not be empty in <playground-id>:<path>")
 			}
 
-			if strings.Contains(args[0], ":") {
+			if srcIsRemote {
 				opts.direction = DirectionRemoteToLocal
-
-				parts := strings.Split(args[0], ":")
-				opts.playID = parts[0]
-				opts.remotePath = parts[1]
+				opts.playID = srcPlayID
+				opts.remotePath = srcPath
 				opts.localPath = args[1]
 			} else {
 				opts.direction = DirectionLocalToRemote
-
-				parts := strings.Split(args[1], ":")
-				opts.playID = parts[0]
-				opts.remotePath = parts[1]
+				opts.playID = dstPlayID
+				opts.remotePath = dstPath
 				opts.localPath = args[0]
 			}
 
@@ -125,6 +140,9 @@ func runCopy(ctx context.Context, cli labcli.CLI, opts *options) error {
 			if opts.recursive {
 				args = append(args, "-r")
 			}
+
+			// Prevent paths starting with '-' from being parsed as scp options.
+			args = append(args, "--")
 
 			if opts.direction == DirectionLocalToRemote {
 				args = append(args,
