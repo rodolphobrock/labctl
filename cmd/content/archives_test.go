@@ -69,7 +69,7 @@ func markExecutable(t *testing.T, dir, file string) {
 		{"add", file},
 		{"update-index", "--chmod=+x", file},
 	} {
-		out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).CombinedOutput()
+		out, err := gitCommand(dir, args...).CombinedOutput()
 		require.NoError(t, err, string(out))
 	}
 }

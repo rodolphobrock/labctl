@@ -2,13 +2,13 @@
 
 package content
 
-import "io/fs"
-
-// archiveFileModes returns a function resolving the permission bits of the
-// archived files in folder. On Unix-like systems, the local file mode is the
-// source of truth.
-func archiveFileModes(folder string) func(rel string, info fs.FileInfo) int64 {
-	return func(_ string, info fs.FileInfo) int64 {
-		return int64(info.Mode().Perm())
+// archiveFileModes returns the permission bits of the archived files, keyed
+// by entry name. On Unix-like systems, the local file mode is the source of
+// truth.
+func archiveFileModes(_ string, entries []archiveEntry) map[string]int64 {
+	modes := make(map[string]int64, len(entries))
+	for _, entry := range entries {
+		modes[entry.name] = int64(entry.info.Mode().Perm())
 	}
+	return modes
 }
