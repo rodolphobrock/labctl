@@ -3,14 +3,8 @@
 package content
 
 import (
-	"log/slog"
 	"strings"
-	"sync"
 )
-
-// warnedModes keeps watch mode from repeating the same warning on every
-// archive rebuild.
-var warnedModes sync.Map
 
 // archiveFileModes returns the permission bits of the archived files, keyed
 // by entry name. Windows doesn't track Unix permissions, so the executable
@@ -51,15 +45,10 @@ func archiveFileModes(folder string, entries []archiveEntry) map[string]int64 {
 	if err == nil && len(untracked) > 0 {
 		warnOnce(folder+"\x00"+strings.Join(untracked, "\x00"),
 			"Files not in the git index are archived as non-executable (0644); "+
-				"`git add` them (and `git update-index --chmod=+x` scripts) to set their mode",
+				"`git add` them (and `git update-index --chmod=+x` scripts) to set their mode; "+
+				"in watch mode, save any file afterwards to rebuild the archive",
 			"folder", folder, "files", untracked)
 	}
 
 	return modes
-}
-
-func warnOnce(key, msg string, args ...any) {
-	if _, warned := warnedModes.LoadOrStore(key, true); !warned {
-		slog.Warn(msg, args...)
-	}
 }
