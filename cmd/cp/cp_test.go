@@ -35,10 +35,29 @@ func TestSplitRemotePath(t *testing.T) {
 		tests = append(tests, splitRemotePathCase{`C:\some\file`, "C", `\some\file`, true})
 	}
 
+	if runtime.GOOS == "windows" {
+		tests = append(tests,
+			splitRemotePathCase{`\\?\C:\some\file`, "", "", false},
+			splitRemotePathCase{`\\?\UNC\server\share\file`, "", "", false},
+		)
+	}
+
 	for _, tt := range tests {
 		playID, path, remote := splitRemotePath(tt.arg)
 		assert.Equal(t, tt.remote, remote, tt.arg)
 		assert.Equal(t, tt.playID, playID, tt.arg)
 		assert.Equal(t, tt.path, path, tt.arg)
+	}
+}
+
+func TestScpLocalPath(t *testing.T) {
+	assert.Equal(t, "./some/file", scpLocalPath("./some/file"))
+
+	if runtime.GOOS == "windows" {
+		assert.Equal(t, `C:\some\file`, scpLocalPath(`\\?\C:\some\file`))
+		assert.Equal(t, `\\server\share\file`, scpLocalPath(`\\?\UNC\server\share\file`))
+		assert.Equal(t, `C:\some\file`, scpLocalPath(`C:\some\file`))
+	} else {
+		assert.Equal(t, `\\?\C:\some\file`, scpLocalPath(`\\?\C:\some\file`))
 	}
 }
